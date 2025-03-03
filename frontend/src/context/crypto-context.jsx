@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect, useContext } from "react"
-import { fakeFetchCrypto, fetchAssets } from '../api';
+import { fetchCryptoData, fetchAssets } from '../api';
 import { percentDifference } from '../utils'
 
 const CryptoContext = createContext({
@@ -30,7 +30,7 @@ export function CryptoContextProvider({ children }) {
     useEffect(() => {
         async function preload() {
             setLoading(true)
-            const { result } = await fakeFetchCrypto()
+            const { result } = await fetchCryptoData()
             const assets = await fetchAssets()
 
             setAssets(mapAssets(assets, result))
@@ -40,8 +40,35 @@ export function CryptoContextProvider({ children }) {
         preload()
     }, [])
 
+    // function addAsset(newAsset) {
+    //     setAssets((prev) => mapAssets([...prev, newAsset], crypto))
+    // }
+
     function addAsset(newAsset) {
-        setAssets((prev) => mapAssets([...prev, newAsset], crypto))
+        setAssets((prev) => {
+            const assetExists = prev.some(asset => asset.id === newAsset.id);
+            
+            if (assetExists) {
+                return mapAssets(
+                    prev.map(asset => 
+                        asset.id === newAsset.id 
+                            ? { 
+                                ...asset, 
+                                amount: asset.amount + newAsset.amount, 
+                                price: (asset.amount * asset.price + newAsset.amount * newAsset.price) / (asset.amount + newAsset.amount), // средняя цена покупки
+                                totalAmount: (asset.amount + newAsset.amount) * (crypto.find(c => c.id === asset.id)?.price || asset.price), // пересчет totalAmount
+                                totalProfit: ((asset.amount + newAsset.amount) * (crypto.find(c => c.id === asset.id)?.price || asset.price)) - ((asset.amount + newAsset.amount) * asset.price) // пересчет totalProfit
+                            }
+                            : asset
+                    ),
+                    crypto
+                );
+                
+            } else {
+                return mapAssets([...prev, newAsset], crypto);
+            }
+            
+        });
     }
 
     return (
